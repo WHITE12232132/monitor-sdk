@@ -9,16 +9,23 @@ export function initPerformance(report, options) {
         }
     }).observe({ type: 'layout-shift', buffered: true });
 
-    // CLS 只在页面隐藏时上报一次最终值
+    // CLS 在页面隐藏/关闭时上报一次最终值
+    let clsReported = false
+    function reportCLS() {
+        if (clsReported) return
+        clsReported = true
+        report({
+            type: 'performance',
+            metricType: 'CLS',
+            value: clsValue
+        }, options)
+    }
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'hidden') {
-            report({
-                type: 'performance',
-                metricType: 'CLS',
-                value: clsValue
-            }, options);
+            reportCLS()
         }
     });
+    window.addEventListener('pagehide', reportCLS)
     // LCP
     new PerformanceObserver((list) => {
         const entries = list.getEntries();

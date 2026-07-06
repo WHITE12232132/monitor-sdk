@@ -9,6 +9,7 @@ function isSensitiveElement(el) {
     return patterns.some(p => identifier.includes(p))
 
 }
+const MAX_EVENTS = 1000
 export function initRecord(bus) {
     let _nodeId = 0
     function getNodeId(node) {
@@ -45,13 +46,19 @@ export function initRecord(bus) {
         return node
     }
     const events = []
+    function addEvent(event) {
+    if (events.length >= MAX_EVENTS) {
+        events.shift()
+    }
+    events.push(event)
+}
     const observer = new MutationObserver((mutations) => {
         for (const m of mutations) {
             if (m.type === 'childList') {
                 const parentId = getNodeId(m.target)
                 for (const node of m.addedNodes) {
                     if (node.nodeType === Node.ELEMENT_NODE) {
-                        events.push({
+                        addEvent({
                             type: 'add',
                             parentId,
                             node: snapshot(node),
@@ -62,7 +69,7 @@ export function initRecord(bus) {
                 for (const node of m.removedNodes) {
                     const removedId = getNodeId(node)
                     if (removedId) {
-                        events.push({
+                        addEvent({
                             type: 'remove',
                             parentId,
                             nodeId: removedId,
@@ -75,7 +82,7 @@ export function initRecord(bus) {
             else if (m.type === 'attributes') {
                 const targetId = getNodeId(m.target)
                 if (targetId && m.attributeName !== 'data-_mid' && !isSensitiveElement(m.target)) {
-                    events.push({
+                    addEvent({
                         type: 'attr',
                         nodeId: targetId,
                         attr: m.attributeName,
@@ -88,7 +95,7 @@ export function initRecord(bus) {
                 const parentEl = m.target.parentElement
                 const parentId = getNodeId(parentEl)
                 if (parentId) {
-                    events.push({
+                    addEvent({
                         type: 'text',
                         nodeId: parentId,
                         text: m.target.textContent,

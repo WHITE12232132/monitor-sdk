@@ -30,4 +30,36 @@ export function initRequest(bus, reportUrl) {
             throw err
         })
     }
+
+    const originXHROpen = XMLHttpRequest.prototype.open
+    const originXHRSend = XMLHttpRequest.prototype.send
+    XMLHttpRequest.prototype.open = function (method, url) {
+        this._monitor_method = method
+        this._monitor_url = url
+        originXHROpen.call(this, method, url)
+    }
+    XMLHttpRequest.prototype.send = function (body) {
+        const startTime = Date.now()
+        const requestUrl = this._monitor_url
+        const isSdkRequest = reportUrl && requestUrl.includes(reportUrl)
+
+        this.addEventListener('loadend', () => {
+            if (!isSdkRequest) {
+                const data = {
+                    type: 'request',
+                    url: requestUrl,
+                    method: this._monitor_method || 'GET',
+                    status: this.status,
+                    duration: Date.now() - startTime
+                }
+                if (this.status === 0) {
+                    data.error = 'Network Error'
+                }
+                bus.emit('request:captured', data)
+            }
+        })
+
+        originXHRSend.call(this, body)
+    }
+
 }
